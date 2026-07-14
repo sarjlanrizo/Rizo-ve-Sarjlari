@@ -1,0 +1,166 @@
+// Basit PWA-stok uygulaması (localStorage)
+const LS_KEY = 'mobil_stok_v1';
+let data = { products: [] };
+function load(){
+  const raw = localStorage.getItem(LS_KEY);
+  data = raw ? JSON.parse(raw) : { products: [] };
+}
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(data)); render(); }
+
+// yardımcı
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function findProductByBarcode(bc){ return data.products.find(p => p.barcode && p.barcode === bc); }
+
+function render(){
+  const q = (document.getElementById('q').value || '').toLowerCase();
+  const filter = document.getElementById('filter').value;
+  const list = document.getElementById('list'); list.innerHTML = '';
+  const items = data.products.filter(p => {
+    if(filter==='low' && (p.quantity||0) > 5) return false;
+    if(!q) return true;
+    return (p.name||'').toLowerCase().includes(q) || (p.barcode||'').toLowerCase().includes(q);
+  }).sort((a,b)=> a.name.localeCompare(b.name));
+  if(!items.length){ list.innerHTML = '<div class="text-muted">Kayıt yok.</div>'; return; }
+  items.forEach(p=>{
+    const div = document.createElement('div'); div.className='list-item';
+    div.innerHTML = `<div class="d-flex align-items-center">
+      <div style="flex:1">
+        <strong>${escapeHtml(p.name)}</strong><div class="small text-muted">${p.barcode||''}</div>
+      </div>
+      <div class="text-end">
+        <div>${(p.quantity||0)}</div>
+        <div class="actions mt-2">
+          <button class="btn btn-sm btn-outline-success" data-action="in" data-id="${p.id}">+Giriş</button>
+          <button class="btn btn-sm btn-outline-danger" data-action="out" data-id="${p.id}">-Çıkış</button>
+          <button class="btn btn-sm btn-outline-secondary" data-action="edit" data-id="${p.id}">Düzenle</button>
+        </div>
+      </div>
+    </div>`;
+    list.appendChild(div);
+  });
+  // action delegation
+  list.querySelectorAll('button').forEach(btn=>{
+    btn.onclick = ()=> {
+      const id = btn.dataset.id; const act = btn.dataset.action;
+      const prod = data.products.find(x=>x.id===id);
+      if(!prod) return;
+      if(act==='edit'){ const name = prompt('Ürün adı', prod.name); if(name!==null){ prod.name = name; save(); } return; }
+      const qty = parseInt(prompt('Miktar', '1')||'0',10); if(!qty) return;
+      if(act==='out' && (prod.quantity||0) < qty){ alert('Yetersiz stok'); return; }
+      prod.quantity = (prod.quantity||0) + (act==='in'? qty : -qty);
+      prod.movements = prod.movements || [];
+      prod.movements.unshift({ type:act, qty, at:new Date().toISOString() });
+      save();
+    };
+  });
+}
+
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[m]); }
+
+// form ekleme
+document.getElementById('formAdd').addEventListener('submit', e=>{
+  e.preventDefault();
+  const name = document.getElementById('inName').value.trim(); if(!name) return;
+  const qty = parseInt(document.getElementById('inQty').value||'0',10) || 0;
+  const barcode = document.getElementById('inBarcode').value.trim() || '';
+  let p;
+  if(barcode) p = findProductByBarcode(barcode);
+  if(p){ p.quantity = (p.quantity||0) + qty; p.movements = p.movements||[]; p.movements.unshift({type:'in', qty, at:new Date().toISOString()}); }
+  else {
+    p = { id: uid(), name, barcode, quantity: qty, created: new Date().toISOString(), movements: [{type:'in', qty, at:new Date().toISOString()}] };
+    data.products.push(p);
+  }
+  document.getElementById('inName').value=''; document.getElementById('inQty').value='1'; document.getElementById('inBarcode').value='';
+  save();
+});
+
+// arama / filtre
+document.getElementById('q').addEventListener('input', render);
+document.getElementById('filter').addEventListener('change', render);
+
+// CSV export
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const rows = [['id','name','barcode','quantity','created']];
+  data.products.forEach(p => rows.push([p.id, p.name, p.barcode||'', p.quantity||0, p.created||'']));
+  const csv = rows.map(r => r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'}); const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'products.csv'; a.click(); URL.revokeObjectURL(url);
+});
+
+// CSV import
+document.getElementById('fileImport').addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const text = ev.target.result;
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    const cols = lines.shift().split(',');
+    const nameIdx = cols.findIndex(c=>/name/i.test(c)); const bcIdx = cols.findIndex(c=>/barcod/i.test(c)); const qtyIdx = cols.findIndex(c=>/qty|quantity/i.test(c));
+    lines.forEach(l=>{
+      const vals = parseCSVLine(l);
+      const name = vals[nameIdx] || vals[0] || 'İsim yok';
+      const bc = bcIdx>=0 ? vals[bcIdx] : '';
+      const qty = qtyIdx>=0 ? parseInt(vals[qtyIdx]||'0',10) : 0;
+      let p = bc ? findProductByBarcode(bc) : data.products.find(x=>x.name===name);
+      if(p){ p.quantity = (p.quantity||0) + qty; p.movements = p.movements || []; if(qty) p.movements.unshift({type:'in', qty, at:new Date().toISOString()}); }
+      else { data.products.push({ id: uid(), name, barcode: bc, quantity: qty, created: new Date().toISOString(), movements: qty? [{type:'in', qty, at:new Date().toISOString()}] : [] }); }
+    });
+    save(); alert('İçe aktarma tamamlandı'); e.target.value='';
+  };
+  reader.readAsText(f, 'utf-8');
+});
+function parseCSVLine(line){ // basit CSV parse (çift tırnaklarla)
+  const res=[]; let cur=''; let inq=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(inq){ if(ch==='\"'){ if(line[i+1]==='\"'){ cur+='\"'; i++; } else inq=false; } else cur+=ch; }
+    else { if(ch===','){ res.push(cur); cur=''; } else if(ch==='\"'){ inq=true; } else cur+=ch; }
+  }
+  res.push(cur); return res;
+}
+
+// Barkod tarama (BarcodeDetector API tercih)
+const scanModal = document.getElementById('scanModal');
+const video = document.getElementById('video');
+let stream = null, detector = null;
+document.getElementById('btnScan').addEventListener('click', async ()=>{
+  // mümkünse BarcodeDetector
+  try{
+    if('BarcodeDetector' in window){
+      detector = new BarcodeDetector({formats: ['ean_13','ean_8','code_128','qr_code']});
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }});
+      video.srcObject = stream;
+      showModal(true);
+      scanLoop();
+    } else {
+      // basit uyarı: destek yoksa manuel
+      alert('Bu tarayıcı BarcodeDetector API desteklemiyor. Manuel girebilirsin.');
+    }
+  }catch(err){ alert('Kamera erişimi gerek. Hata: '+err.message); }
+});
+async function scanLoop(){
+  if(!detector) return;
+  try{
+    const faces = await detector.detect(video);
+    if(faces && faces.length){
+      const code = faces[0].rawValue;
+      if(code){
+        stopStream();
+        showModal(false);
+        document.getElementById('inBarcode').value = code;
+        const existing = findProductByBarcode(code);
+        if(existing) document.getElementById('inName').value = existing.name;
+        else document.getElementById('inName').value = code;
+        alert('Barkod bulundu: ' + code);
+        return;
+      }
+    }
+  }catch(e){}
+  requestAnimationFrame(scanLoop);
+}
+document.getElementById('closeScan').addEventListener('click', ()=>{ stopStream(); showModal(false); });
+function showModal(sh){ scanModal.style.display = sh ? 'flex' : 'none'; }
+function stopStream(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; video.srcObject=null; detector=null; }
+
+// init
+load(); render();
