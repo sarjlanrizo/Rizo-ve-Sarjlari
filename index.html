@@ -4,231 +4,244 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Şarj Aleti Stok Takip</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         * {
             box-sizing: border-box;
-            margin: 0;
-            padding: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         body {
             background-color: #f4f6f9;
-            padding: 20px;
+            margin: 0;
+            padding: 15px;
             color: #333;
         }
         .container {
-            max-width: 800px;
+            max-width: 500px;
             margin: 0 auto;
-        }
-        h1, h2 {
-            margin-bottom: 20px;
-            color: #2c3e50;
-        }
-        .stats-container {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        @media(min-width: 600px) {
-            .stats-container { grid-template-columns: 1fr 1fr; }
-        }
-        .card {
             background: #fff;
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
         }
-        .stat-card {
-            background: #3498db;
-            color: white;
+        h2 {
             text-align: center;
+            margin-top: 0;
+            color: #2c3e50;
         }
-        .stat-card h3 { font-size: 2rem; margin-top: 5px; }
-        .form-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        input {
-            flex: 1;
-            min-width: 150px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-        button {
-            padding: 10px 15px;
+        .btn {
+            width: 100%;
+            padding: 12px;
             border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
+            border-radius: 8px;
             font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 12px;
             transition: background 0.2s;
         }
-        .btn-add { background: #2ecc71; color: white; }
-        .btn-add:hover { background: #27ae60; }
-        .btn-sell { background: #e67e22; color: white; padding: 5px 10px; font-size: 14px; }
-        .btn-sell:hover { background: #d35400; }
-        .btn-delete { background: #e74c3c; color: white; padding: 5px 10px; font-size: 14px; }
-        .btn-delete:hover { background: #c0392b; }
-        table {
+        .btn-scan {
+            background-color: #2ecc71;
+            color: white;
+        }
+        .btn-add {
+            background-color: #3498db;
+            color: white;
+        }
+        .btn-remove {
+            background-color: #e74c3c;
+            color: white;
+        }
+        input {
             width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        th, td {
             padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
+            margin-bottom: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
         }
-        th { background-color: #ecf0f1; color: #2c3e50; }
-        tr:hover { background-color: #f9f9f9; }
-        .actions { display: flex; gap: 5px; }
-        .no-stock { color: #e74c3c; font-weight: bold; }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+        .btn-group .btn {
+            flex: 1;
+        }
+        #reader {
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            border: none !important;
+        }
+        .stock-section {
+            margin-top: 20px;
+            border-top: 2px solid #eee;
+            padding-top: 15px;
+        }
+        .stock-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .stock-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #eee;
+            border-radius: 6px;
+            margin-bottom: 5px;
+        }
+        .stock-item span {
+            font-size: 15px;
+        }
+        .stock-item .count {
+            font-weight: bold;
+            color: #2c3e50;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🔌 Şarj Aleti Stok Takip Paneli</h1>
+    <h2>Şarj Aleti Stok Takip</h2>
 
-    <div class="stats-container">
-        <div class="card stat-card">
-            <p>Toplam Ürün Çeşidi</p>
-            <h3 id="total-types">0</h3>
-        </div>
-        <div class="card stat-card" style="background: #2c3e50;">
-            <p>Depodaki Toplam Ürün Adedi</p>
-            <h3 id="total-items">0</h3>
-        </div>
+    <div id="reader"></div>
+    
+    <button class="btn btn-scan" id="scan-btn" onclick="startScanner()">Kamera ile Barkod Tara</button>
+
+    <input type="text" id="urun-adi" placeholder="Ürün Adı veya Barkod No">
+    <input type="number" id="urun-adet" placeholder="Adet" min="1" value="1">
+
+    <div class="btn-group">
+        <button class="btn btn-add" onclick="stokGuncelle(true)">Stok Ekle</button>
+        <button class="btn btn-remove" onclick="stokGuncelle(false)">Stok Çıkar</button>
     </div>
 
-    <div class="card" style="margin-bottom: 20px;">
-        <h2>Yeni Ürün Ekle</h2>
-        <div class="form-group">
-            <input type="text" id="product-name" placeholder="Örn: iPhone 20W Hızlı Şarj" required>
-            <input type="number" id="product-stock" placeholder="Stok Adedi" min="0" required>
-            <button class="btn-add" onclick="addProduct()">Ürünü Ekle</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <h2>Stok Durumu</h2>
-        <div style="overflow-x: auto;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Ürün Adı</th>
-                        <th>Mevcut Stok</th>
-                        <th>İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody id="product-list">
-                    </tbody>
-            </table>
-        </div>
+    <div class="stock-section">
+        <div class="stock-title">Eldeki Mevcut Stok</div>
+        <div id="stok-listesi">Yükleniyor...</div>
     </div>
 </div>
 
 <script>
-    // Tarayıcı hafızasından verileri çek, yoksa boş dizi oluştur
-    let products = JSON.parse(localStorage.getItem('charge_stocks')) || [];
+    let html5QrcodeScanner = null;
 
-    // Sayfa yüklendiğinde listeyi güncelle
-    updateUI();
+    // Sayfa yüklendiğinde mevcut stokları listele
+    window.onload = function() {
+        stokListele();
+    };
 
-    // Ürün Ekleme Fonksiyonu
-    function addProduct() {
-        const nameInput = document.getElementById('product-name');
-        const stockInput = document.getElementById('product-stock');
+    // Kamerayı Başlatma Fonksiyonu
+    function startScanner() {
+        // Eğer zaten açıksa kapatıp tekrar açalım temizlik için
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.clear();
+        }
+
+        document.getElementById('scan-btn').innerText = "Kamera Hazırlanıyor...";
+
+        html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+            fps: 10, 
+            qrbox: { width: 250, height: 150 },
+            rememberLastUsedCamera: true
+        });
+
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    }
+
+    // Başarılı Tarama Durumunda
+    function onScanSuccess(decodedText, decodedResult) {
+        document.getElementById('urun-adi').value = decodedText;
         
-        const name = nameInput.value.trim();
-        const stock = parseInt(stockInput.value);
+        // Telefonun hafifçe titremesini sağla (kullanıcı deneyimi için)
+        if (navigator.vibrate) {
+            navigator.vibrate(100);
+        }
 
-        if (name === '' || isNaN(stock) || stock < 0) {
-            alert('Lütfen geçerli bir ürün adı ve stok adedi girin.');
+        // Taramayı durdur (Sürekli tarayıp ekranı doldurmasın diye)
+        html5QrcodeScanner.clear().then(() => {
+            document.getElementById('scan-btn').innerText = "Kamera ile Barkod Tara";
+        }).catch(err => {
+            console.error("Tarayıcı kapatılamadı:", err);
+        });
+    }
+
+    function onScanFailure(error) {
+        // Hataları konsola yaz ama ekranda kullanıcıyı rahatsız etmesin
+        console.warn(`Tarama hatası: ${error}`);
+    }
+
+    // Stok Ekle / Stok Çıkar Mantığı
+    function stokGuncelle(ekle) {
+        const urun = document.getElementById('urun-adi').value.trim();
+        const adetInput = document.getElementById('urun-adet');
+        const adet = parseInt(adetInput.value);
+
+        if (!urun) {
+            alert("Lütfen ürün adı girin veya barkod taratın!");
+            return;
+        }
+        if (isNaN(adet) || adet <= 0) {
+            alert("Lütfen geçerli bir adet girin!");
             return;
         }
 
-        // Eğer ürün zaten varsa üzerine ekle, yoksa yeni ekle
-        const existingProduct = products.find(p => p.name.toLowerCase() === name.toLowerCase());
-        if (existingProduct) {
-            existingProduct.stock += stock;
+        // Mevcut stoğu localStorage'dan çek
+        let stoklar = JSON.parse(localStorage.getItem('sarj_stok')) || {};
+        let mevcutAdet = stoklar[urun] || 0;
+
+        if (ekle) {
+            stoklar[urun] = mevcutAdet + adet;
+            alert(`${adet} adet eklendi.`);
         } else {
-            products.push({ id: Date.now(), name: name, stock: stock });
-        }
-
-        saveAndRefresh();
-        
-        // Inputları temizle
-        nameInput.value = '';
-        stockInput.value = '';
-    }
-
-    // Satış Yapma (Stoktan Düşme) Fonksiyonu
-    function sellProduct(id) {
-        const product = products.find(p => p.id === id);
-        if (product) {
-            if (product.stock > 0) {
-                product.stock -= 1;
-                saveAndRefresh();
+            if (mevcutAdet < adet) {
+                alert(`Yetersiz stok! Elde sadece ${mevcutAdet} adet var.`);
+                return;
             } else {
-                alert('Bu ürünün stoğu tükenmiş!');
+                stoklar[urun] = mevcutAdet - adet;
+                if (stoklar[urun] === 0) {
+                    delete stoklar[urun]; // Stok sıfırlandıysa listeden temizle
+                }
+                alert(`${adet} adet düşüldü.`);
             }
         }
+
+        // Güncel veriyi kaydet ve listeyi güncelle
+        localStorage.setItem('sarj_stok', JSON.stringify(stoklar));
+        
+        // Formu temizle
+        document.getElementById('urun-adi').value = "";
+        adetInput.value = "1";
+        
+        stokListele();
     }
 
-    // Ürün Tamamen Silme
-    function deleteProduct(id) {
-        if (confirm('Bu ürünü listeden silmek istediğinize emin misiniz?')) {
-            products = products.filter(p => p.id !== id);
-            saveAndRefresh();
+    // Stokları Listeleme Fonksiyonu
+    function stokListele() {
+        const stoklar = JSON.parse(localStorage.getItem('sarj_stok')) || {};
+        const listeAlani = document.getElementById('stok-listesi');
+        
+        listeAlani.innerHTML = "";
+
+        const urunler = Object.keys(stoklar);
+
+        if (urunler.length === 0) {
+            listeAlani.innerHTML = "<p style='color: #888; text-align: center;'>Stokta hiç ürün bulunmuyor.</p>";
+            return;
         }
-    }
 
-    // Verileri kaydet ve ekranı yenile
-    function saveAndRefresh() {
-        localStorage.setItem('charge_stocks', JSON.stringify(products));
-        updateUI();
-    }
-
-    // Arayüzü Güncelleyen Esas Fonksiyon
-    function updateUI() {
-        const listBody = document.getElementById('product-list');
-        const totalTypesEl = document.getElementById('total-types');
-        const totalItemsEl = document.getElementById('total-items');
-        
-        listBody.innerHTML = '';
-        
-        let totalItems = 0;
-
-        // Ürünleri tabloya yazdır
-        products.forEach(product => {
-            totalItems += product.stock;
-            
-            const tr = document.createElement('tr');
-            
-            const stockDisplay = product.stock === 0 
-                ? `<span class="no-stock">Tükendi</span>` 
-                : `${product.stock} Adet`;
-
-            tr.innerHTML = `
-                <td><strong>${product.name}</strong></td>
-                <td>${stockDisplay}</td>
-                <td class="actions">
-                    <button class="btn-sell" onclick="sellProduct(${product.id})">1 Adet Sat</button>
-                    <button class="btn-delete" onclick="deleteProduct(${product.id})">Sil</button>
-                </td>
+        urunler.forEach(urun => {
+            const item = document.createElement('div');
+            item.className = 'stock-item';
+            item.innerHTML = `
+                <span>${urun}</span>
+                <span class="count">${stoklar[urun]} Adet</span>
             `;
-            listBody.appendChild(tr);
+            listeAlani.appendChild(item);
         });
-
-        // İstatistikleri güncelle
-        totalTypesEl.innerText = products.length;
-        totalItemsEl.innerText = totalItems;
     }
 </script>
 
