@@ -131,7 +131,6 @@
             background-color: #f1f5f9;
             border-color: #3498db;
         }
-        /* Görsel Kutusu */
         .image-box {
             width: 60px;
             height: 60px;
@@ -185,10 +184,10 @@
             font-weight: bold;
             color: #2ecc71;
         }
-        /* Hızlı Ekle/Çıkar Butonları */
         .quick-actions {
             display: flex;
             gap: 5px;
+            align-items: center;
         }
         .btn-quick {
             width: 32px;
@@ -213,15 +212,27 @@
             color: #3498db;
             border-color: #93c5fd;
         }
-        .btn-quick.add:active {
-            background-color: #dbeafe;
-        }
         .btn-quick.sub {
             color: #e74c3c;
             border-color: #fca5a5;
         }
-        .btn-quick.sub:active {
+        .btn-delete {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background-color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        .btn-delete:active {
             background-color: #fee2e2;
+            color: #ef4444;
+            border-color: #fca5a5;
         }
         .hint-text {
             font-size: 11px;
@@ -230,13 +241,35 @@
             margin-top: -5px;
             margin-bottom: 15px;
         }
+        .backup-section {
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 2px dashed #e2e8f0;
+            display: flex;
+            gap: 10px;
+        }
+        .btn-backup {
+            flex: 1;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background-color: #f8fafc;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+        }
+        .btn-backup:active {
+            background-color: #e2e8f0;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>Şarj Aleti Stok Takip</h2>
-    <p class="hint-text">Öneri almak veya işlem yapmak için listedeki bir ürüne dokunabilirsiniz.</p>
+    <p class="hint-text">İşlem yapmak veya isim kopyalamak için listedeki ürüne dokunabilirsiniz.</p>
 
     <div class="input-group">
         <label for="urun-adi">Ürün Adı / Model</label>
@@ -264,20 +297,38 @@
         </div>
         <div id="stok-listesi">Yükleniyor...</div>
     </div>
+
+    <div class="backup-section">
+        <button class="btn-backup" onclick="yedekIndir()">📥 Yedek İndir (Kaydet)</button>
+        <button class="btn-backup" onclick="document.getElementById('yedek-yukle-input').click()">📤 Yedeği Geri Yükle</button>
+        <input type="file" id="yedek-yukle-input" style="display: none;" accept=".json" onchange="yedekYukle(event)">
+    </div>
 </div>
 
 <script>
+    const STORAGE_KEY = 'sarj_stok_v3';
+
     window.onload = function() {
         stokListele();
     };
 
-    // Stoğa tıklayınca formu o ürünle doldurur
     function formuDoldur(urunAdi) {
         document.getElementById('urun-adi').value = urunAdi;
         document.getElementById('urun-adet').focus();
     }
 
-    // Stok Ekle / Sat (Çıkar) Ana Fonksiyonu
+    function getStoklar() {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function setStoklar(stoklar) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stoklar));
+    }
+
     function stokGuncelle(ekle, belirliUrun = null, belirliAdet = null) {
         const urun = belirliUrun ? belirliUrun.trim() : document.getElementById('urun-adi').value.trim();
         const adet = belirliAdet ? parseInt(belirliAdet) : parseInt(document.getElementById('urun-adet').value);
@@ -291,8 +342,7 @@
             return;
         }
 
-        let stoklar = JSON.parse(localStorage.getItem('sarj_stok_v3')) || {};
-        
+        let stoklar = getStoklar();
         if (!stoklar[urun]) {
             stoklar[urun] = { adet: 0, gorsel: "" };
         }
@@ -301,21 +351,18 @@
 
         if (ekle) {
             stoklar[urun].adet = mevcutAdet + adet;
-            if (!belirliUrun) alert(`${adet} adet '${urun}' eklendi.`);
+            if (!belirliUrun) alert(`${adet} adet '${urun}' stoğa eklendi.`);
         } else {
             if (mevcutAdet < adet) {
                 alert(`Yetersiz stok! '${urun}' için elde sadece ${mevcutAdet} adet var.`);
                 return;
             } else {
                 stoklar[urun].adet = mevcutAdet - adet;
-                if (stoklar[urun].adet === 0) {
-                    stoklar[urun].adet = 0;
-                }
-                if (!belirliUrun) alert(`${adet} adet '${urun}' satıldı/düşüldü.`);
+                if (!belirliUrun) alert(`${adet} adet '${urun}' stoktan düşüldü.`);
             }
         }
 
-        localStorage.setItem('sarj_stok_v3', JSON.stringify(stoklar));
+        setStoklar(stoklar);
         
         if (!belirliUrun) {
             document.getElementById('urun-adi').value = "";
@@ -325,13 +372,21 @@
         stokListele();
     }
 
-    // Satırdaki +/- butonları için hızlı stok güncelleme
     function hizliGuncelle(e, urun, ekle) {
         e.stopPropagation(); 
         stokGuncelle(ekle, urun, 1);
     }
 
-    // Fotoğraf Seçme ve Sıkıştırma Çözümü
+    function urunSil(e, urun) {
+        e.stopPropagation();
+        if (confirm(`'${urun}' ürününü listeden tamamen silmek istiyor musunuz?`)) {
+            let stoklar = getStoklar();
+            delete stoklar[urun];
+            setStoklar(stoklar);
+            stokListele();
+        }
+    }
+
     function triggerGorselSec(e, urunKey) {
         e.stopPropagation(); 
 
@@ -355,7 +410,7 @@
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
                     
-                    const max_size = 300;
+                    const max_size = 250;
                     let width = img.width;
                     let height = img.height;
 
@@ -375,12 +430,12 @@
                     canvas.height = height;
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
 
-                    let stoklar = JSON.parse(localStorage.getItem('sarj_stok_v3')) || {};
+                    let stoklar = getStoklar();
                     if (stoklar[urunKey]) {
                         stoklar[urunKey].gorsel = compressedBase64;
-                        localStorage.setItem('sarj_stok_v3', JSON.stringify(stoklar));
+                        setStoklar(stoklar);
                         stokListele();
                     }
                 };
@@ -393,9 +448,8 @@
         input.click();
     }
 
-    // Stokları Listeleme ve İstatistikleri Hesaplama
     function stokListele() {
-        const stoklar = JSON.parse(localStorage.getItem('sarj_stok_v3')) || {};
+        const stoklar = getStoklar();
         const listeAlani = document.getElementById('stok-listesi');
         const oneriAlani = document.getElementById('urun-onerileri');
         
@@ -403,14 +457,11 @@
         oneriAlani.innerHTML = ""; 
 
         const urunler = Object.keys(stoklar);
-        
-        // --- TOPLAM STOK ADETİ HESAPLAMA ---
         let toplamAdet = 0;
         urunler.forEach(urun => {
             toplamAdet += (stoklar[urun].adet || 0);
         });
 
-        // İstatistik rozetlerini güncelle
         document.getElementById('total-types').innerText = urunler.length + " Çeşit";
         document.getElementById('total-items').innerText = "Toplam: " + toplamAdet + " Adet";
 
@@ -446,10 +497,41 @@
                 <div class="quick-actions">
                     <button class="btn-quick sub" onclick="hizliGuncelle(event, '${urun.replace(/'/g, "\\'")}', false)">-</button>
                     <button class="btn-quick add" onclick="hizliGuncelle(event, '${urun.replace(/'/g, "\\'")}', true)">+</button>
+                    <button class="btn-delete" title="Sil" onclick="urunSil(event, '${urun.replace(/'/g, "\\'")}')">🗑️</button>
                 </div>
             `;
             listeAlani.appendChild(item);
         });
+    }
+
+    // Yedek İndirme
+    function yedekIndir() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(localStorage.getItem(STORAGE_KEY) || "{}");
+        const dlAnchorElem = document.createElement('a');
+        dlAnchorElem.setAttribute("href", dataStr);
+        dlAnchorElem.setAttribute("download", `stok_yedek_${new Date().toISOString().slice(0,10)}.json`);
+        dlAnchorElem.click();
+    }
+
+    // Yedek Yükleme
+    function yedekYukle(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const parsed = JSON.parse(e.target.result);
+                if (typeof parsed === 'object') {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+                    stokListele();
+                    alert("Yedek başarıyla yüklendi!");
+                }
+            } catch (err) {
+                alert("Geçersiz yedek dosyası!");
+            }
+        };
+        reader.readAsText(file);
     }
 </script>
 
