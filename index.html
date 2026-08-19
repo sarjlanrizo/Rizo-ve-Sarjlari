@@ -250,15 +250,19 @@
         }
         .btn-backup {
             flex: 1;
-            padding: 8px 10px;
-            border-radius: 6px;
+            padding: 10px;
+            border-radius: 8px;
             border: 1px solid #cbd5e1;
             background-color: #f8fafc;
-            color: #475569;
-            font-size: 12px;
+            color: #334155;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
             text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
         }
         .btn-backup:active {
             background-color: #e2e8f0;
@@ -299,9 +303,9 @@
     </div>
 
     <div class="backup-section">
-        <button class="btn-backup" onclick="yedekIndir()">📥 Yedek İndir (Kaydet)</button>
-        <button class="btn-backup" onclick="document.getElementById('yedek-yukle-input').click()">📤 Yedeği Geri Yükle</button>
-        <input type="file" id="yedek-yukle-input" style="display: none;" accept=".json" onchange="yedekYukle(event)">
+        <button class="btn-backup" onclick="csvIndir()">📊 CSV İndir</button>
+        <button class="btn-backup" onclick="document.getElementById('csv-yukle-input').click()">📥 CSV Yükle</button>
+        <input type="file" id="csv-yukle-input" style="display: none;" accept=".csv" onchange="csvYukle(event)">
     </div>
 </div>
 
@@ -504,34 +508,83 @@
         });
     }
 
-    // Yedek İndirme
-    function yedekIndir() {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(localStorage.getItem(STORAGE_KEY) || "{}");
-        const dlAnchorElem = document.createElement('a');
-        dlAnchorElem.setAttribute("href", dataStr);
-        dlAnchorElem.setAttribute("download", `stok_yedek_${new Date().toISOString().slice(0,10)}.json`);
-        dlAnchorElem.click();
+    // CSV Formatında İndirme (Excel ve iPhone Numbers Uyumlu UTF-8 BOM)
+    function csvIndir() {
+        const stoklar = getStoklar();
+        const urunler = Object.keys(stoklar);
+
+        if (urunler.length === 0) {
+            alert("İndirilecek stok verisi bulunamadı!");
+            return;
+        }
+
+        let csvIcerik = "\uFEFF"; // UTF-8 BOM (Türkçe karakterlerin düzgün görünmesi için)
+        csvIcerik += "Ürün Adı;Adet;Görsel_Base64\n";
+
+        urunler.forEach(urun => {
+            const adet = stoklar[urun].adet || 0;
+            const gorsel = stoklar[urun].gorsel || "";
+            // CSV içinde noktalı virgül ve tırnak işaretlerini güvenli hale getir
+            const guvenliUrun = `"${urun.replace(/"/g, '""')}"`;
+            csvIcerik += `${guvenliUrun};${adet};${gorsel}\n`;
+        });
+
+        const blob = new Blob([csvIcerik], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `stok_listesi_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 
-    // Yedek Yükleme
-    function yedekYukle(event) {
+    // CSV Dosyasından Geri Yükleme
+    function csvYukle(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                const parsed = JSON.parse(e.target.result);
-                if (typeof parsed === 'object') {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+                const text = e.target.result;
+                const lines = text.split(/\r?\n/);
+                let yeniStoklar = {};
+
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+
+                    const parts = line.split(';');
+                    if (parts.length >= 2) {
+                        let urun = parts[0].replace(/^"|"$/g, '').replace(/""/g, '"').trim();
+                        let adet = parseInt(parts[1]) || 0;
+                        let gorsel = parts[2] ? parts[2].trim() : "";
+
+                        if (urun) {
+                            yeniStoklar[urun] = {
+                                adet: adet,
+                                gorsel: gorsel
+                            };
+                        }
+                    }
+                }
+
+                if (Object.keys(yeniStoklar).length > 0) {
+                    setStoklar(yeniStoklar);
                     stokListele();
-                    alert("Yedek başarıyla yüklendi!");
+                    alert("Stoklar CSV dosyasından başarıyla yüklendi!");
+                } else {
+                    alert("CSV dosyasında geçerli stok verisi bulunamadı.");
                 }
             } catch (err) {
-                alert("Geçersiz yedek dosyası!");
+                alert("CSV dosyası okunurken hata oluştu!");
             }
+            // Input'u sıfırla ki aynı dosya tekrar seçilebilsin
+            event.target.value = '';
         };
-        reader.readAsText(file);
+        reader.readAsText(file, "UTF-8");
     }
 </script>
 
