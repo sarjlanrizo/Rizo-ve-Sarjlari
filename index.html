@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Şarj Aleti Stok Takip</title>
+    <title>Şarj Aleti Stok & Finans Takip</title>
     <style>
         * {
             box-sizing: border-box;
@@ -17,7 +17,7 @@
             color: #333;
         }
         .container {
-            max-width: 500px;
+            max-width: 520px;
             margin: 0 auto;
             background: #fff;
             padding: 20px;
@@ -30,6 +30,41 @@
             color: #2c3e50;
             font-size: 20px;
         }
+        
+        /* Finansal Özet Paneli */
+        .finance-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .summary-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 8px;
+            text-align: center;
+        }
+        .summary-card.profit {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+        .summary-label {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .summary-value {
+            font-size: 14px;
+            font-weight: bold;
+            color: #1e293b;
+        }
+        .summary-card.profit .summary-value {
+            color: #16a34a;
+        }
+
         .btn {
             width: 100%;
             padding: 12px;
@@ -55,6 +90,13 @@
         .input-group {
             margin-bottom: 12px;
         }
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+        .input-row .input-group {
+            flex: 1;
+        }
         label {
             display: block;
             margin-bottom: 5px;
@@ -64,10 +106,10 @@
         }
         input {
             width: 100%;
-            padding: 12px;
+            padding: 11px;
             border: 1px solid #ccc;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 15px;
             background-color: #fafafa;
             transition: border-color 0.2s;
         }
@@ -105,7 +147,7 @@
             font-weight: normal;
             color: #94a3b8;
             display: flex;
-            gap: 10px;
+            gap: 8px;
         }
         .stat-badge {
             background-color: #f1f5f9;
@@ -118,7 +160,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px;
+            padding: 12px;
             background: #f9f9f9;
             border: 1px solid #eee;
             border-radius: 8px;
@@ -178,11 +220,24 @@
         .stock-count {
             font-size: 13px;
             color: #64748b;
-            margin-top: 3px;
+            margin-top: 2px;
         }
         .count-val {
             font-weight: bold;
             color: #2ecc71;
+        }
+        .stock-price-info {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 4px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .price-badge {
+            background: #e2e8f0;
+            padding: 2px 5px;
+            border-radius: 4px;
         }
         .quick-actions {
             display: flex;
@@ -241,53 +296,58 @@
             margin-top: -5px;
             margin-bottom: 15px;
         }
-        .backup-section {
-            margin-top: 25px;
-            padding-top: 15px;
-            border-top: 2px dashed #e2e8f0;
-            display: flex;
-            gap: 10px;
-        }
-        .btn-backup {
-            flex: 1;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #cbd5e1;
-            background-color: #f8fafc;
-            color: #334155;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
-        }
-        .btn-backup:active {
-            background-color: #e2e8f0;
-        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Şarj Aleti Stok Takip</h2>
-    <p class="hint-text">İşlem yapmak veya isim kopyalamak için listedeki ürüne dokunabilirsiniz.</p>
-
-    <div class="input-group">
-        <label for="urun-adi">Ürün Adı / Model</label>
-        <input type="text" id="urun-adi" placeholder="Ürün adını girin veya seçin..." list="urun-onerileri" autocomplete="off">
-        <datalist id="urun-onerileri"></datalist>
+    <h2>Şarj Aleti Stok & Finans Takip</h2>
+    
+    <!-- Toplam Geliş / Satış ve Kâr Konsolu -->
+    <div class="finance-summary">
+        <div class="summary-card">
+            <span class="summary-label">Toplam Maliyet</span>
+            <span class="summary-value" id="total-gelis">0 ₺</span>
+        </div>
+        <div class="summary-card">
+            <span class="summary-label">Toplam Değer</span>
+            <span class="summary-value" id="total-satis">0 ₺</span>
+        </div>
+        <div class="summary-card profit">
+            <span class="summary-label">Beklenen Kâr</span>
+            <span class="summary-value" id="total-kar">0 ₺</span>
+        </div>
     </div>
 
-    <div class="input-group">
-        <label for="urun-adet">İşlem Yapılacak Adet</label>
-        <input type="number" id="urun-adet" placeholder="Adet" min="1" value="1">
+    <p class="hint-text">İşlem yapmak veya bilgileri forma aktarmak için listedeki ürüne dokunabilirsiniz.</p>
+
+    <!-- Ürün ve Adet Girişi -->
+    <div class="input-row">
+        <div class="input-group" style="flex: 2;">
+            <label for="urun-adi">Ürün Adı / Model</label>
+            <input type="text" id="urun-adi" placeholder="Ürün adını girin..." list="urun-onerileri" autocomplete="off">
+            <datalist id="urun-onerileri"></datalist>
+        </div>
+        <div class="input-group" style="flex: 1;">
+            <label for="urun-adet">İşlem Adedi</label>
+            <input type="number" id="urun-adet" placeholder="Adet" min="1" value="1">
+        </div>
+    </div>
+
+    <!-- Geliş ve Satış Fiyatı Konsolu -->
+    <div class="input-row">
+        <div class="input-group">
+            <label for="urun-gelis">Birim Geliş (₺)</label>
+            <input type="number" id="urun-gelis" placeholder="0.00" min="0" step="any">
+        </div>
+        <div class="input-group">
+            <label for="urun-satis">Birim Satış (₺)</label>
+            <input type="number" id="urun-satis" placeholder="0.00" min="0" step="any">
+        </div>
     </div>
 
     <div class="btn-group">
-        <button class="btn btn-add" onclick="stokGuncelle(true)">Stok Ekle</button>
+        <button class="btn btn-add" onclick="stokGuncelle(true)">Stok Ekle / Güncelle</button>
         <button class="btn btn-remove" onclick="stokGuncelle(false)">Stok Sat / Çıkar</button>
     </div>
 
@@ -301,24 +361,24 @@
         </div>
         <div id="stok-listesi">Yükleniyor...</div>
     </div>
-
-    <div class="backup-section">
-        <button class="btn-backup" onclick="csvIndir()">📊 CSV İndir</button>
-        <button class="btn-backup" onclick="document.getElementById('csv-yukle-input').click()">📥 CSV Yükle</button>
-        <input type="file" id="csv-yukle-input" style="display: none;" accept=".csv" onchange="csvYukle(event)">
-    </div>
 </div>
 
 <script>
-    const STORAGE_KEY = 'sarj_stok_v3';
+    const STORAGE_KEY = 'sarj_stok_v4';
 
     window.onload = function() {
         stokListele();
     };
 
     function formuDoldur(urunAdi) {
-        document.getElementById('urun-adi').value = urunAdi;
-        document.getElementById('urun-adet').focus();
+        const stoklar = getStoklar();
+        const urun = stoklar[urunAdi];
+        if (urun) {
+            document.getElementById('urun-adi').value = urunAdi;
+            document.getElementById('urun-adet').value = 1;
+            document.getElementById('urun-gelis').value = urun.gelisFiyati !== undefined ? urun.gelisFiyati : "";
+            document.getElementById('urun-satis').value = urun.satisFiyati !== undefined ? urun.satisFiyati : "";
+        }
     }
 
     function getStoklar() {
@@ -333,9 +393,16 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify(stoklar));
     }
 
+    function paraFormati(tutar) {
+        return Number(tutar || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺";
+    }
+
     function stokGuncelle(ekle, belirliUrun = null, belirliAdet = null) {
         const urun = belirliUrun ? belirliUrun.trim() : document.getElementById('urun-adi').value.trim();
         const adet = belirliAdet ? parseInt(belirliAdet) : parseInt(document.getElementById('urun-adet').value);
+        
+        const gelis = parseFloat(document.getElementById('urun-gelis').value) || 0;
+        const satis = parseFloat(document.getElementById('urun-satis').value) || 0;
 
         if (!urun) {
             alert("Lütfen bir ürün adı girin!");
@@ -348,21 +415,31 @@
 
         let stoklar = getStoklar();
         if (!stoklar[urun]) {
-            stoklar[urun] = { adet: 0, gorsel: "" };
+            stoklar[urun] = { adet: 0, gorsel: "", gelisFiyati: 0, satisFiyati: 0 };
+        }
+
+        // Eğer formdan fiyat girilmişse güncelle
+        if (!belirliUrun) {
+            if (document.getElementById('urun-gelis').value !== "") {
+                stoklar[urun].gelisFiyati = gelis;
+            }
+            if (document.getElementById('urun-satis').value !== "") {
+                stoklar[urun].satisFiyati = satis;
+            }
         }
 
         let mevcutAdet = stoklar[urun].adet || 0;
 
         if (ekle) {
             stoklar[urun].adet = mevcutAdet + adet;
-            if (!belirliUrun) alert(`${adet} adet '${urun}' stoğa eklendi.`);
+            if (!belirliUrun) alert(`${adet} adet '${urun}' eklendi / güncellendi.`);
         } else {
             if (mevcutAdet < adet) {
                 alert(`Yetersiz stok! '${urun}' için elde sadece ${mevcutAdet} adet var.`);
                 return;
             } else {
                 stoklar[urun].adet = mevcutAdet - adet;
-                if (!belirliUrun) alert(`${adet} adet '${urun}' stoktan düşüldü.`);
+                if (!belirliUrun) alert(`${adet} adet '${urun}' satıldı / stoktan düşüldü.`);
             }
         }
 
@@ -371,6 +448,8 @@
         if (!belirliUrun) {
             document.getElementById('urun-adi').value = "";
             document.getElementById('urun-adet').value = "1";
+            document.getElementById('urun-gelis').value = "";
+            document.getElementById('urun-satis').value = "";
         }
         
         stokListele();
@@ -462,12 +541,29 @@
 
         const urunler = Object.keys(stoklar);
         let toplamAdet = 0;
+        let toplamGelisTutari = 0;
+        let toplamSatisTutari = 0;
+
         urunler.forEach(urun => {
-            toplamAdet += (stoklar[urun].adet || 0);
+            const item = stoklar[urun];
+            const adet = item.adet || 0;
+            const gelis = parseFloat(item.gelisFiyati) || 0;
+            const satis = parseFloat(item.satisFiyati) || 0;
+
+            toplamAdet += adet;
+            toplamGelisTutari += (adet * gelis);
+            toplamSatisTutari += (adet * satis);
         });
 
+        const toplamKar = toplamSatisTutari - toplamGelisTutari;
+
+        // Finans Paneli ve Rozetleri Güncelle
         document.getElementById('total-types').innerText = urunler.length + " Çeşit";
         document.getElementById('total-items').innerText = "Toplam: " + toplamAdet + " Adet";
+        
+        document.getElementById('total-gelis').innerText = paraFormati(toplamGelisTutari);
+        document.getElementById('total-satis').innerText = paraFormati(toplamSatisTutari);
+        document.getElementById('total-kar').innerText = paraFormati(toplamKar);
 
         if (urunler.length === 0) {
             listeAlani.innerHTML = "<p style='color: #888; text-align: center; padding: 20px 0;'>Stokta hiç ürün bulunmuyor.</p>";
@@ -476,6 +572,9 @@
 
         urunler.forEach(urun => {
             const urunVerisi = stoklar[urun];
+            const adet = urunVerisi.adet || 0;
+            const gelis = parseFloat(urunVerisi.gelisFiyati) || 0;
+            const satis = parseFloat(urunVerisi.satisFiyati) || 0;
             
             const option = document.createElement('option');
             option.value = urun;
@@ -496,7 +595,11 @@
                 </div>
                 <div class="stock-details">
                     <span class="stock-name">${urun}</span>
-                    <span class="stock-count">Mevcut: <span class="count-val">${urunVerisi.adet} Adet</span></span>
+                    <span class="stock-count">Mevcut: <span class="count-val">${adet} Adet</span></span>
+                    <div class="stock-price-info">
+                        <span class="price-badge">Geliş: ${paraFormati(gelis)}</span>
+                        <span class="price-badge">Satış: ${paraFormati(satis)}</span>
+                    </div>
                 </div>
                 <div class="quick-actions">
                     <button class="btn-quick sub" onclick="hizliGuncelle(event, '${urun.replace(/'/g, "\\'")}', false)">-</button>
@@ -506,85 +609,6 @@
             `;
             listeAlani.appendChild(item);
         });
-    }
-
-    // CSV Formatında İndirme (Excel ve iPhone Numbers Uyumlu UTF-8 BOM)
-    function csvIndir() {
-        const stoklar = getStoklar();
-        const urunler = Object.keys(stoklar);
-
-        if (urunler.length === 0) {
-            alert("İndirilecek stok verisi bulunamadı!");
-            return;
-        }
-
-        let csvIcerik = "\uFEFF"; // UTF-8 BOM (Türkçe karakterlerin düzgün görünmesi için)
-        csvIcerik += "Ürün Adı;Adet;Görsel_Base64\n";
-
-        urunler.forEach(urun => {
-            const adet = stoklar[urun].adet || 0;
-            const gorsel = stoklar[urun].gorsel || "";
-            // CSV içinde noktalı virgül ve tırnak işaretlerini güvenli hale getir
-            const guvenliUrun = `"${urun.replace(/"/g, '""')}"`;
-            csvIcerik += `${guvenliUrun};${adet};${gorsel}\n`;
-        });
-
-        const blob = new Blob([csvIcerik], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `stok_listesi_${new Date().toISOString().slice(0,10)}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    // CSV Dosyasından Geri Yükleme
-    function csvYukle(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const text = e.target.result;
-                const lines = text.split(/\r?\n/);
-                let yeniStoklar = {};
-
-                for (let i = 1; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (!line) continue;
-
-                    const parts = line.split(';');
-                    if (parts.length >= 2) {
-                        let urun = parts[0].replace(/^"|"$/g, '').replace(/""/g, '"').trim();
-                        let adet = parseInt(parts[1]) || 0;
-                        let gorsel = parts[2] ? parts[2].trim() : "";
-
-                        if (urun) {
-                            yeniStoklar[urun] = {
-                                adet: adet,
-                                gorsel: gorsel
-                            };
-                        }
-                    }
-                }
-
-                if (Object.keys(yeniStoklar).length > 0) {
-                    setStoklar(yeniStoklar);
-                    stokListele();
-                    alert("Stoklar CSV dosyasından başarıyla yüklendi!");
-                } else {
-                    alert("CSV dosyasında geçerli stok verisi bulunamadı.");
-                }
-            } catch (err) {
-                alert("CSV dosyası okunurken hata oluştu!");
-            }
-            // Input'u sıfırla ki aynı dosya tekrar seçilebilsin
-            event.target.value = '';
-        };
-        reader.readAsText(file, "UTF-8");
     }
 </script>
 
