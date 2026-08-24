@@ -36,7 +36,7 @@
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 8px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         .summary-card {
             background: #f8fafc;
@@ -57,12 +57,71 @@
             margin-bottom: 4px;
         }
         .summary-value {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
             color: #1e293b;
         }
         .summary-card.profit .summary-value {
             color: #16a34a;
+        }
+
+        /* Satış Performans Paneli */
+        .sales-summary {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+        }
+        .sales-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: #1e40af;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .sales-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            text-align: center;
+        }
+        .sales-card {
+            background: #fff;
+            border: 1px solid #dbeafe;
+            border-radius: 6px;
+            padding: 8px 4px;
+        }
+        .sales-card.profit {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+        .sales-label {
+            font-size: 10px;
+            color: #64748b;
+            font-weight: 650;
+            display: block;
+            margin-bottom: 3px;
+        }
+        .sales-value {
+            font-size: 12px;
+            font-weight: bold;
+            color: #1e3a8a;
+        }
+        .sales-card.profit .sales-value {
+            color: #16a34a;
+        }
+        .btn-reset-sales {
+            background: none;
+            border: none;
+            color: #ef4444;
+            font-size: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: underline;
+            padding: 0;
         }
 
         .btn {
@@ -303,19 +362,41 @@
 <div class="container">
     <h2>Şarj Aleti Stok & Finans Takip</h2>
     
-    <!-- Toplam Geliş / Satış ve Kâr Konsolu -->
+    <!-- Toplam Geliş / Satış ve Kâr Konsolu (Eldeki Stoklar İçin) -->
     <div class="finance-summary">
         <div class="summary-card">
-            <span class="summary-label">Toplam Maliyet</span>
+            <span class="summary-label">Mevcut Maliyet</span>
             <span class="summary-value" id="total-gelis">0 ₺</span>
         </div>
         <div class="summary-card">
-            <span class="summary-label">Toplam Değer</span>
+            <span class="summary-label">Mevcut Değer</span>
             <span class="summary-value" id="total-satis">0 ₺</span>
         </div>
         <div class="summary-card profit">
             <span class="summary-label">Beklenen Kâr</span>
             <span class="summary-value" id="total-kar">0 ₺</span>
+        </div>
+    </div>
+
+    <!-- Yeni Eklenen: Gerçekleşen Satış ve Kâr Özeti -->
+    <div class="sales-summary">
+        <div class="sales-title">
+            <span>Satış Performansı (Toplam)</span>
+            <button class="btn-reset-sales" onclick="satisGecmisiniSifirla()">Geçmişi Sıfırla</button>
+        </div>
+        <div class="sales-grid">
+            <div class="sales-card">
+                <span class="sales-label">Satılan Maliyet</span>
+                <span class="sales-value" id="satis-toplam-maliyet">0 ₺</span>
+            </div>
+            <div class="sales-card">
+                <span class="sales-label">Kasa Giren (Ciro)</span>
+                <span class="sales-value" id="satis-toplam-ciro">0 ₺</span>
+            </div>
+            <div class="sales-card profit">
+                <span class="sales-label">Gerçekleşen Kâr</span>
+                <span class="sales-value" id="satis-toplam-kar">0 ₺</span>
+            </div>
         </div>
     </div>
 
@@ -364,7 +445,7 @@
 </div>
 
 <script>
-    const STORAGE_KEY = 'sarj_stok_v4';
+    const STORAGE_KEY = 'sarj_stok_v5';
 
     window.onload = function() {
         stokListele();
@@ -415,8 +496,21 @@
 
         let stoklar = getStoklar();
         if (!stoklar[urun]) {
-            stoklar[urun] = { adet: 0, gorsel: "", gelisFiyati: 0, satisFiyati: 0 };
+            stoklar[urun] = { 
+                adet: 0, 
+                gorsel: "", 
+                gelisFiyati: 0, 
+                satisFiyati: 0, 
+                toplamSatilanAdet: 0, 
+                toplamSatisCiro: 0, 
+                toplamSatisMaliyet: 0 
+            };
         }
+
+        // Eksik alanlar için varsayılan değer ataması (geriye dönük uyumluluk)
+        if (stoklar[urun].toplamSatilanAdet === undefined) stoklar[urun].toplamSatilanAdet = 0;
+        if (stoklar[urun].toplamSatisCiro === undefined) stoklar[urun].toplamSatisCiro = 0;
+        if (stoklar[urun].toplamSatisMaliyet === undefined) stoklar[urun].toplamSatisMaliyet = 0;
 
         // Eğer formdan fiyat girilmişse güncelle
         if (!belirliUrun) {
@@ -429,6 +523,8 @@
         }
 
         let mevcutAdet = stoklar[urun].adet || 0;
+        let gecerliGelis = stoklar[urun].gelisFiyati || 0;
+        let gecerliSatis = stoklar[urun].satisFiyati || 0;
 
         if (ekle) {
             stoklar[urun].adet = mevcutAdet + adet;
@@ -439,6 +535,12 @@
                 return;
             } else {
                 stoklar[urun].adet = mevcutAdet - adet;
+                
+                // Satış istatistiklerini biriktir
+                stoklar[urun].toplamSatilanAdet += adet;
+                stoklar[urun].toplamSatisMaliyet += (adet * gecerliGelis);
+                stoklar[urun].toplamSatisCiro += (adet * gecerliSatis);
+
                 if (!belirliUrun) alert(`${adet} adet '${urun}' satıldı / stoktan düşüldü.`);
             }
         }
@@ -453,6 +555,19 @@
         }
         
         stokListele();
+    }
+
+    function satisGecmisiniSifirla() {
+        if (confirm("Tüm satış istatistiklerinizi (toplam ciro ve gerçekleşen kâr) sıfırlamak istiyor musunuz? (Stok adetleriniz etkilenmez)")) {
+            let stoklar = getStoklar();
+            Object.keys(stoklar).forEach(urun => {
+                stoklar[urun].toplamSatilanAdet = 0;
+                stoklar[urun].toplamSatisCiro = 0;
+                stoklar[urun].toplamSatisMaliyet = 0;
+            });
+            setStoklar(stoklar);
+            stokListele();
+        }
     }
 
     function hizliGuncelle(e, urun, ekle) {
@@ -544,6 +659,9 @@
         let toplamGelisTutari = 0;
         let toplamSatisTutari = 0;
 
+        let genelToplamSatilanMaliyet = 0;
+        let genelToplamCiro = 0;
+
         urunler.forEach(urun => {
             const item = stoklar[urun];
             const adet = item.adet || 0;
@@ -553,17 +671,26 @@
             toplamAdet += adet;
             toplamGelisTutari += (adet * gelis);
             toplamSatisTutari += (adet * satis);
+
+            genelToplamSatilanMaliyet += (item.toplamSatisMaliyet || 0);
+            genelToplamCiro += (item.toplamSatisCiro || 0);
         });
 
         const toplamKar = toplamSatisTutari - toplamGelisTutari;
+        const genelGerceklesenKar = genelToplamCiro - genelToplamSatilanMaliyet;
 
-        // Finans Paneli ve Rozetleri Güncelle
+        // Mevcut Stok Finans Paneli Güncelleme
         document.getElementById('total-types').innerText = urunler.length + " Çeşit";
         document.getElementById('total-items').innerText = "Toplam: " + toplamAdet + " Adet";
         
         document.getElementById('total-gelis').innerText = paraFormati(toplamGelisTutari);
         document.getElementById('total-satis').innerText = paraFormati(toplamSatisTutari);
         document.getElementById('total-kar').innerText = paraFormati(toplamKar);
+
+        // Satış Performans Paneli Güncelleme
+        document.getElementById('satis-toplam-maliyet').innerText = paraFormati(genelToplamSatilanMaliyet);
+        document.getElementById('satis-toplam-ciro').innerText = paraFormati(genelToplamCiro);
+        document.getElementById('satis-toplam-kar').innerText = paraFormati(genelGerceklesenKar);
 
         if (urunler.length === 0) {
             listeAlani.innerHTML = "<p style='color: #888; text-align: center; padding: 20px 0;'>Stokta hiç ürün bulunmuyor.</p>";
